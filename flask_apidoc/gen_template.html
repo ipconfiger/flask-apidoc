@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>API DOCUMENTS</title>
+
+    <!-- Bootstrap -->
+    <link href="http://cdn.bootcss.com/bootstrap/3.3.0/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="http://cdn.bootcss.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="http://cdn.bootcss.com/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+
+    <div class="container-fluid">
+        <center><h1>Api Document</h1></center>
+        <a name="toc"></a>
+        <div class="row">
+            <div class="col-xs-6 col-md-4">
+                <ul class="list-group">
+                    <li class="list-group-item list-group-item-success text-center">Toc Index</li>
+                    {% for f in gen.functions %}
+                    <li class="list-group-item">{{ f.link() | safe }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="col-xs-12 col-md-8">
+                {% for f in gen.functions %}
+                {{ f.anchor() | safe }}
+                <div class="panel panel-default">
+                    <div class="panel-heading"> [#{{f.show_idx}}] {{ f.name }}</div>
+                    <div class="panel-body">
+                        <dl class="dl-horizontal">
+                          <dt>URL</dt>
+                          <dd>{{ f.url }}</dd>
+                        </dl>
+                        <dl class="dl-horizontal">
+                          <dt>HTTP Method</dt>
+                          <dd>{{ f.method }}</dd>
+                        </dl>
+                        {% if f.url_params %}
+                        <dl class="dl-horizontal">
+                          <dt>URL Parameters</dt>
+                          <dd>
+                              <table class="table table-bordered table-hover">
+                                  <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {% for k, v in f.url_params.iteritems() %}
+                                    <tr>
+                                        {% for col in v %}
+                                        <td>{{ col }}</td>
+                                        {% endfor %}
+                                    </tr>
+                                    {% endfor %}
+                                  </tbody>
+                              </table>
+                          </dd>
+                        </dl>
+                        {% endif %}
+                        {% if f.query_params %}
+                        <dl class="dl-horizontal">
+                          <dt>QueryString Parameters</dt>
+                          <dd>
+                              <table class="table table-bordered table-hover">
+                                  <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Require</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {% for row in f.query_params %}
+                                    <tr>
+                                        {% for col in row%}
+                                        <td>{{ col }}</td>
+                                        {% endfor %}
+                                    </tr>
+                                    {% endfor %}
+                                  </tbody>
+                              </table>
+                          </dd>
+                        </dl>
+                        {% endif %}
+                        {% if f.form_params %}
+                        <dl class="dl-horizontal">
+                          <dt>Form Parameters</dt>
+                          <dd>
+                              <table class="table table-bordered table-hover">
+                                  <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Require</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {% for row in f.form_params %}
+                                    <tr>
+                                        {% for col in row%}
+                                        <td>{{ col }}</td>
+                                        {% endfor %}
+                                    </tr>
+                                    {% endfor %}
+                                  </tbody>
+                              </table>
+                          </dd>
+                        </dl>
+                        {% endif %}
+                        <dl class="dl-horizontal">
+                          <dt>Return Value</dt>
+                          <dd>
+                              <pre>{{ f.return_value() }}</pre>
+                          </dd>
+                        </dl>
+                    </div>
+                    <div class="panel-footer">
+                        <a href="#toc"><span class="glyphicon glyphicon-arrow-up"></span></a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+        </div>
+    </div>
+
+
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="http://cdn.bootcss.com/jquery/1.11.1/jquery.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="http://cdn.bootcss.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
+  </body>
+</html>

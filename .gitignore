@@ -87,3 +87,7 @@ ENV/
 
 # Rope project settings
 .ropeproject
+.idea/*
+/build/
+/dist/
+/flask_apidoc.egg-info/
