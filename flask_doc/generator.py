@@ -1,6 +1,9 @@
 # coding=utf8
 
-from flask import Blueprint, url_for
+from operator import itemgetter
+import traceback
+import sys
+from flask import Blueprint, Response
 import os
 from jinja2 import Environment, FileSystemLoader
 
@@ -43,12 +46,27 @@ def response_markdown():
     return INSTANCE.generate_markdown()
 
 
+@apidoc_bp.route('/loading.gif')
+def loading_gif():
+    """
+    返回loading.gif
+    :return:
+    :rtype:
+    """
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'loading.gif')
+    with open(path, 'rb') as f:
+        gif = f.read()
+    response = Response(gif, mimetype="image/jpeg")
+    return response
+
 
 class FunctionDocument(object):
     """
     接口类的文档对象
     """
-    def __init__(self, doc_string, url, method):
+    def __init__(self, doc_string, url, method, endpoint, prefix):
+        self.prefix = prefix
+        self.endpoint = endpoint
         self.doc_string = doc_string
         self.url = url
         self.method = method
@@ -60,6 +78,10 @@ class FunctionDocument(object):
         self.normal_lines = []
         self.return_lines = []
         self.document_format(doc_string)
+        self.uid = 0
+
+    def __getitem__(self, item):
+        return getattr(self, item)
 
     def anchor(self):
         """
@@ -100,19 +122,21 @@ class FunctionDocument(object):
                 self.show_idx = int(s[5:])
                 continue
             if s.startswith(form_param_flag):
-                self.form_params.append(s[2:].split('|'))
+                self.form_params.append([p.strip() for p in s[2:].split('|')])
                 continue
             if s.startswith(query_string_flag):
-                self.query_params.append(s[2:].split('|'))
+                self.query_params.append([p.strip() for p in s[2:].split('|')])
                 continue
             if s.startswith(url_param_flag):
                 name, value = s[6:].split(':')
-                self.url_params[name] = [name, None, value]
+                self.url_params[name.strip()] = [name.strip(), None, value.strip()]
                 continue
             if s.startswith(url_param_type_flag):
-                name, value = s [6:].split(':')
+                name, value = s[6:].split(':')
                 if name in self.url_params:
-                    self.url_params[name][1] = value
+                    arr = self.url_params[name.strip()]
+                    arr[1] = value.strip()
+                    self.url_params[name.strip()] = arr
                 continue
             if s.startswith(":return:"):
                 rt_mode = True
@@ -210,23 +234,27 @@ class Generator(object):
         rules_arr = []
         if self.filters:
             for filter in self.filters:
-                api_items += [(k, v) for k, v in self.app.view_functions.iteritems() if k.startswith(filter)]
+                api_items += [(k, v, filter) for k, v in self.app.view_functions.iteritems() if k.startswith(filter)]
                 rules_arr += [(rule.endpoint, rule) for rule in self.app.url_map.iter_rules() if
                               rule.endpoint.startswith(filter)]
         else:
-            api_items += [(k, v) for k, v in self.app.view_functions.iteritems()]
+            api_items += [(k, v, ".") for k, v in self.app.view_functions.iteritems()]
             rules_arr += [(rule.endpoint, rule) for rule in self.app.url_map.iter_rules()]
         rules = dict(rules_arr)
 
-        for api_name, api_func in api_items:
+        for api_name, api_func, prefix in api_items:
             rule = rules.get(api_name)
             url = rule.rule
             method = [m for m in list(rule.methods) if m != 'OPTIONS']
             doc = api_func.func_doc
             if not doc:
                 continue
-            funcs.append(FunctionDocument(doc.decode('utf8'), url, method))
-        self.functions = sorted(funcs, key=lambda item:item.show_idx)
+            funcs.append(FunctionDocument(doc.decode('utf8'), url, method, rule.endpoint, prefix))
+        self.functions = sorted(funcs, key=itemgetter('prefix', 'show_idx'))
+        for idx, f in enumerate(self.functions):
+            f.uid = "api-%s" % idx
+
+
         for s_idx, fc in enumerate(self.functions):
             if fc.show_idx<1:
                 fc.show_idx = s_idx
@@ -274,4 +302,24 @@ class Generator(object):
 
 
 def main():
-    print "ok"
+    sys.path.append(os.getcwd())
+    if len(sys.argv) < 2:
+        print "Missing argument: mod_name:<Flask App> for Example manager:app"
+        sys.exit(1)
+    if len(sys.argv) > 2:
+        filter_arr = sys.argv[2].split(',')
+    else:
+        filter_arr = None
+    import_str = sys.argv[1]
+    try:
+        mod_name, var_name = import_str.split(":")
+        mod = __import__(mod_name, globals(), locals(), fromlist=[var_name, ])
+        app = getattr(mod, var_name)
+        g = Generator(app, filters=filter_arr)
+        g.prepare()
+        print g.generate_markdown()
+        sys.exit(0)
+    except Exception as e:
+        traceback.print_exc()
+        print "Can not import Flask app from argument", import_str
+        sys.exit(1)

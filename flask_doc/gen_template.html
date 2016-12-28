@@ -38,7 +38,7 @@
                     <div class="panel-body">
                         <dl class="dl-horizontal">
                           <dt>URL</dt>
-                          <dd>{{ f.url }}</dd>
+                          <dd>{{ f.url | escape }}</dd>
                         </dl>
                         <dl class="dl-horizontal">
                           <dt>HTTP Method</dt>
@@ -130,19 +130,171 @@
                     </div>
                     <div class="panel-footer">
                         <a href="#toc"><span class="glyphicon glyphicon-arrow-up"></span></a>
+                        &nbsp; &nbsp;
+                        <a data-toggle="modal" data-target="#test-fly-{{ f.show_idx }}"><span class="glyphicon glyphicon-send"></span></a>
                     </div>
+                </div>
+
+                <!-- Modal -->
+                <div class="modal fade" id="test-fly-{{ f.show_idx }}" tabindex="-1" role="dialog" aria-labelledby="myModalLabel_{{ f.show_idx }}" aria-hidden="true">
+                  <div class="modal-dialog">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                        <h4 class="modal-title" id="myModalLabel_{{ f.show_idx }}">{{ f.name }}</h4>
+                      </div>
+                      <div class="modal-body">
+                          <div id="result_{{ f.show_idx }}"></div>
+                          <form class="form-horizontal" role="form" id="header-form-{{ f.show_idx }}" method="post">
+                              <div class="form-group">
+                                <label for="auth_{{ f.show_idx }}" class="col-sm-2 control-label">Auth</label>
+                                <div class="col-sm-10">
+                                    <input type="hidden" id="url-{{ f.show_idx }}" value="{{ f.url }}">
+                                    <input type="text" name="authenticate" class="form-control" id="auth_{{ f.show_idx }}" placeholder="Auth token,keep empty if don't need">
+                                </div>
+                              </div>
+                              <div class="form-group">
+                                <label for="method_{{ f.show_idx }}" class="col-sm-2 control-label">Method</label>
+                                <div class="col-sm-10">
+                                    <select name="method" id="method_{{ f.show_idx }}" class="form-control">
+                                        {% for method in f.method %}
+                                        <option value="{{ method }}">{{ method }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                              </div>
+                          </form>
+                          <form class="form-horizontal" role="form" id="url-form-{{ f.show_idx }}" method="post">
+                              {% if f.url_params %}
+                              <div class="form-group">
+                                <div class="col-sm-offset-2 col-sm-10">
+                                   URL Parameters
+                                </div>
+                              </div>
+                              {% for k, v in f.url_params.iteritems() %}
+                              <div class="form-group">
+                                <label for="u_{{ f.show_idx }}_{{ k }}" class="col-sm-2 control-label">{{ k }}</label>
+                                <div class="col-sm-10">
+                                  <input type="text" name="u_{{ k }}" class="form-control url_param" id="u_{{ f.show_idx }}_{{ k }}">
+                                </div>
+                              </div>
+                              {% endfor %}
+                              {% endif %}
+                          </form>
+                          <form class="form-horizontal" role="form" id="query-form-{{ f.show_idx }}" method="get">
+                              {% if f.query_params %}
+                              <div class="form-group">
+                                <div class="col-sm-offset-2 col-sm-10">
+                                   Querystring Parameters
+                                </div>
+                              </div>
+                              {% for row in f.query_params %}
+                              <div class="form-group">
+                                <label for="q-{{ f.show_idx }}_{{ row[0] }}" class="col-sm-2 control-label">{{ row[0] }}</label>
+                                <div class="col-sm-10">
+                                  <input type="text" name="{{ row[0] }}" class="form-control query_param" id="q-{{ f.show_idx }}_{{ row[0] }}">
+                                </div>
+                              </div>
+                              {% endfor %}
+                              {% endif %}
+                          </form>
+                          <form class="form-horizontal" role="form" id="post-form-{{ f.show_idx }}" method="get">
+                              {% if f.form_params %}
+                              <div class="form-group">
+                                <div class="col-sm-offset-2 col-sm-10">
+                                   Form Parameters
+                                </div>
+                              </div>
+                              {% for row in f.form_params %}
+                              <div class="form-group">
+                                <label for="f-{{ f.show_idx }}_{{ row[0] }}" class="col-sm-2 control-label">{{ row[0] }}</label>
+                                <div class="col-sm-10">
+                                  <input type="text" name="{{ row[0] }}" class="form-control query_param" id="f-{{ f.show_idx }}_{{ row[0] }}">
+                                </div>
+                              </div>
+                              {% endfor %}
+                              {% endif %}
+                            </form>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary execute-btn" form-bind-id="{{ f.show_idx }}">Execute</button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 {% endfor %}
             </div>
 
         </div>
     </div>
-
-
-
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="http://cdn.bootcss.com/jquery/1.11.1/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="http://cdn.bootcss.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
+    <script type="text/javascript">
+        var gif_url = "/api-doc/loading.gif";
+        function getAuthCookie(idx) {
+           var cn = "Authorization=";
+           var idx = document.cookie.indexOf(cn)
+
+           if (idx != -1) {
+               var end = document.cookie.indexOf(";", idx + 1);
+               if (end == -1) end = document.cookie.length;
+               return unescape(document.cookie.substring(idx + cn.length, end));
+           } else {
+               return "";
+          }
+}
+
+        function gen_url(idx){
+            var url = $("#url-" + idx).val();
+            var url_pattern_form = $("#url-form-" + idx).serializeArray();
+            console.log(url_pattern_form);
+            for(var i=0; i< url_pattern_form.length; i++){
+                var url_param = url_pattern_form[i];
+                console.log(url_param.name.substring(2));
+                var regExp = new RegExp("<"+url_param['name'].substring(2)+">", 'gi');
+                url = url.replace(regExp, url_param['value']);
+            }
+            var query_form = $("#query-form-" + idx).serialize();
+
+            return url + "?" + query_form;
+        }
+        
+        function send_data(idx) {
+            var url = gen_url(idx);
+            var method = $("#method_"+idx).val();
+            var form_data = $("#post-form-" + idx).serialize();
+            var auth = $("#auth_" + idx).val()
+            $("#result_" + idx).html("<center><img src='" + gif_url + "'/></center>");
+            $.ajax({
+                type: method,
+                url: url,
+                headers: {'Authorization': auth},
+                data: form_data,
+                dataType: "json",
+                success: function(data) {
+                    //var obj = jQuery.parseJSON(data); if the dataType is not specified as json uncomment this
+                    // do what ever you want with the server response
+                    $("#result_" + idx).html("<pre>" + JSON.stringify(data) +"</pre>");
+                },
+                error: function() {
+                    alert('error handing here');
+                    $("#result_" + idx).html("");
+                }
+            });
+
+        }
+
+        $(function () {
+            $(".execute-btn").click(function () {
+                var fid = $(this).attr('form-bind-id');
+                //var data = $("#" + fid).serialize();
+                console.log(fid);
+                send_data(fid);
+            })
+        });
+    </script>
   </body>
 </html>
