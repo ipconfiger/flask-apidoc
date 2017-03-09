@@ -57,7 +57,7 @@
                 <div class="panel panel-default">
                     <div class="panel-heading"> [#{{f.show_idx}}] {{ f.name }}</div>
                     <div class="panel-body">
-                        {% if f.content %}
+                        {% if f.has_content %}
                         <pre>{{ f.content }}</pre>
                         {% endif %}
                         <dl class="dl-horizontal">

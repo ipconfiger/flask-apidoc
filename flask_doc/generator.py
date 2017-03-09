@@ -3,9 +3,10 @@
 from operator import itemgetter
 import traceback
 import sys
-from flask import Blueprint, Response
+from flask import Blueprint, Response, Markup
 import os
 from jinja2 import Environment, FileSystemLoader
+import markdown
 
 
 apidoc_bp = Blueprint('api-doc', __name__, template_folder='', url_prefix='/api-doc')
@@ -92,6 +93,7 @@ class FunctionDocument(object):
         self.url_params = {}
         self.normal_lines = []
         self.return_lines = []
+        self.has_content = False
         self.document_format(doc_string)
         self.uid = 0
 
@@ -158,7 +160,9 @@ class FunctionDocument(object):
                 continue
             self.normal_lines.append(s)
         self.name = [line.strip() for line in self.normal_lines if line.strip()][0]
-        self.content = "\n".join(self.normal_lines[2:]) if len(self.normal_lines[2:]) else ""
+        content = "\n".join(self.normal_lines[2:]) if len(self.normal_lines[2:]) else ""
+        self.has_content = True if content else False
+        self.content = Markup(markdown.markdown(content))
 
 
     def return_value(self):
