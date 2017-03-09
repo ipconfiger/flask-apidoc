@@ -23,6 +23,20 @@ def response_index():
         return "Not initialized properly"
     return INSTANCE.generate_html()
 
+
+@apidoc_bp.route('/b64str', methods=["POST"])
+def base64string():
+    """
+    输出auth的header
+    :return:
+    :rtype:
+    """
+    from flask import request, jsonify
+    from base64 import urlsafe_b64encode
+    str = request.form.get('s')
+    return jsonify(rt=urlsafe_b64encode(str))
+
+
 @apidoc_bp.route('/html')
 def response_html():
     """
@@ -72,6 +86,7 @@ class FunctionDocument(object):
         self.method = method
         self.show_idx = 0
         self.name = ""
+        self.content = ""
         self.form_params = []
         self.query_params = []
         self.url_params = {}
@@ -143,6 +158,8 @@ class FunctionDocument(object):
                 continue
             self.normal_lines.append(s)
         self.name = [line.strip() for line in self.normal_lines if line.strip()][0]
+        self.content = "\n".join(self.normal_lines[2:]) if len(self.normal_lines[2:]) else ""
+
 
     def return_value(self):
         """
@@ -220,6 +237,7 @@ class Generator(object):
         self.app = flask_app
         self.filters = filters
         self.functions = []
+        self.global_auth = ""
         global INSTANCE
         INSTANCE = self
 
@@ -245,7 +263,7 @@ class Generator(object):
         for api_name, api_func, prefix in api_items:
             rule = rules.get(api_name)
             url = rule.rule
-            method = [m for m in list(rule.methods) if m != 'OPTIONS']
+            method = [m for m in list(rule.methods) if m != 'OPTIONS' and m != 'HEAD']
             doc = api_func.func_doc
             if not doc:
                 continue
@@ -292,6 +310,8 @@ class Generator(object):
         :return:
         :rtype:
         """
+        from flask import request
+        self.global_auth = request.args.get('auth', "")
         path = os.path.dirname(os.path.abspath(__file__))
         template_env = Environment(
             autoescape=False,
