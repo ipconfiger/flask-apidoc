@@ -6,7 +6,9 @@ import sys
 from flask import Blueprint, Response, Markup
 import os
 from jinja2 import Environment, FileSystemLoader
+from utils import func_sign
 import markdown
+import describer
 
 
 apidoc_bp = Blueprint('api-doc', __name__, template_folder='', url_prefix='/api-doc')
@@ -79,7 +81,7 @@ class FunctionDocument(object):
     """
     接口类的文档对象
     """
-    def __init__(self, doc_string, url, method, endpoint, prefix):
+    def __init__(self, doc_string, url, method, endpoint, prefix, forms, args):
         self.prefix = prefix
         self.endpoint = endpoint
         self.doc_string = doc_string
@@ -88,14 +90,14 @@ class FunctionDocument(object):
         self.show_idx = 0
         self.name = ""
         self.content = ""
-        self.form_params = []
-        self.query_params = []
+        self.form_params = forms
+        self.query_params = args
         self.url_params = {}
         self.normal_lines = []
         self.return_lines = []
         self.has_content = False
         self.document_format(doc_string)
-        self.uid = 0
+        self.uid = ""
 
     def __getitem__(self, item):
         return getattr(self, item)
@@ -106,10 +108,10 @@ class FunctionDocument(object):
         :return:
         :rtype:
         """
-        return u"<a name=\"api-%s\"></a>" % self.show_idx
+        return u"<a name=\"api-%s\"></a>" % self.uid
 
     def link(self):
-        return u"<a href=\"#api-%s\">%s</a>" % (self.show_idx, self.name)
+        return u"<a href=\"#api-%s\">%s</a>" % (self.uid, self.name)
 
     def document_format(self, doc_str):
         """
@@ -120,8 +122,6 @@ class FunctionDocument(object):
         :rtype:
         """
         command_flag = "#idx:"
-        form_param_flag = "@@"
-        query_string_flag = "&&"
         url_param_flag = ":param"
         url_param_type_flag = ":type"
         lines = doc_str.split('\n')
@@ -137,12 +137,6 @@ class FunctionDocument(object):
             if s.startswith(command_flag):
                 # 获取排序索引
                 self.show_idx = int(s[5:])
-                continue
-            if s.startswith(form_param_flag):
-                self.form_params.append([p.strip() for p in s[2:].split('|')])
-                continue
-            if s.startswith(query_string_flag):
-                self.query_params.append([p.strip() for p in s[2:].split('|')])
                 continue
             if s.startswith(url_param_flag):
                 name, value = s[6:].split(':')
@@ -207,7 +201,7 @@ class FunctionDocument(object):
             lines.append(u"| Name | Require | Type | Description |")
             lines.append(u"|:----- |:---- |:----| --------- |")
             for param in self.query_params:
-                lines.append(u"|%s|" % u"|".join(param if param else []))
+                lines.append(u"|%s|" % u"|".join(param.get_arr() if param else []))
         if self.form_params:
             lines.append(u" ")
             lines.append(u"#### Form Parameter")
@@ -215,7 +209,7 @@ class FunctionDocument(object):
             lines.append(u"| Name | Require | Type | Description |")
             lines.append(u"|:----- |:---- |:----| --------- |")
             for param in self.form_params:
-                lines.append(u"|%s|" % u"|".join(param if param else []))
+                lines.append(u"|%s|" % u"|".join(param.get_arr() if param else []))
         lines.append(u" ")
         lines.append(u"#### Return Value")
         lines.append(u" ")
@@ -224,6 +218,22 @@ class FunctionDocument(object):
         lines.append(u" ")
         mark_down = u"\n".join(lines)
         return mark_down
+
+
+class Bp(object):
+    name = ""
+    key = ''
+    funcs =[]
+    
+    def sort(self):
+        for s_idx, fc in enumerate(self.funcs):
+            if fc.show_idx < 1:
+                fc.show_idx = s_idx
+
+        self.funcs = sorted(self.funcs, key=itemgetter('prefix', 'show_idx'))
+
+        for idx, f in enumerate(self.funcs):
+            f.uid = "%s-%s" % (self.key, idx)
 
 
 class Generator(object):
@@ -241,6 +251,8 @@ class Generator(object):
         self.app = flask_app
         self.filters = filters
         self.functions = []
+        self.blueprints = {}
+        self.blueprint_ins = []
         self.global_auth = ""
         global INSTANCE
         INSTANCE = self
@@ -251,35 +263,53 @@ class Generator(object):
         :return:
         :rtype:
         """
-        api_items = []
-        funcs = []
-        rules_arr = []
-        if self.filters:
-            for filter in self.filters:
-                api_items += [(k, v, filter) for k, v in self.app.view_functions.iteritems() if k.startswith(filter)]
-                rules_arr += [(rule.endpoint, rule) for rule in self.app.url_map.iter_rules() if
-                              rule.endpoint.startswith(filter)]
-        else:
-            api_items += [(k, v, ".") for k, v in self.app.view_functions.iteritems()]
-            rules_arr += [(rule.endpoint, rule) for rule in self.app.url_map.iter_rules()]
+        ft_dict = dict(self.filters) if self.filters else {}
+
+        api_items = [(k, v) for k, v in self.app.view_functions.iteritems()]
+        rules_arr = [(rule.endpoint, rule) for rule in self.app.url_map.iter_rules()]
         rules = dict(rules_arr)
 
-        for api_name, api_func, prefix in api_items:
+        for api_name, api_func in api_items:
+
+            if api_name == 'static':
+                continue
+
+            prefix, _ = api_name.split('.')
+            if self.filters and prefix not in ft_dict:
+                continue # 如果没有加进来就跳过不care
+
+
             rule = rules.get(api_name)
             url = rule.rule
             method = [m for m in list(rule.methods) if m != 'OPTIONS' and m != 'HEAD']
             doc = api_func.func_doc
             if not doc:
                 continue
-            funcs.append(FunctionDocument(doc.decode('utf8'), url, method, rule.endpoint, prefix))
-        self.functions = sorted(funcs, key=itemgetter('prefix', 'show_idx'))
-        for idx, f in enumerate(self.functions):
-            f.uid = "api-%s" % idx
+
+            f_name = func_sign(api_func)
+
+            forms = describer.api_forms[f_name] if f_name in describer.api_forms else []
+            
+            args = describer.api_args[f_name] if f_name in describer.api_args else []
 
 
-        for s_idx, fc in enumerate(self.functions):
-            if fc.show_idx<1:
-                fc.show_idx = s_idx
+
+
+            if prefix in self.blueprints:
+                bp = self.blueprints[prefix]
+            else:
+                bp = Bp()
+                bp.name = ft_dict[prefix] if self.filters else prefix
+                bp.key = prefix
+                bp.funcs = []
+                self.blueprints[prefix] = bp
+
+            bp.funcs.append(FunctionDocument(doc.decode('utf8'), url, method, rule.endpoint, prefix, forms, args))
+
+            bp.sort()
+            
+        self.blueprint_ins = [bp for k, bp in self.blueprints.iteritems()]
+
         self.app.register_blueprint(apidoc_bp)
 
     def generate_markdown(self):
@@ -299,12 +329,15 @@ class Generator(object):
             doc_lines.append(u"|%s|" % u"|".join([str(doc_idx), doc.link()]))
         doc_lines.append(u" ")
         doc_lines.append(u"---")
-
-        for doc_idx, doc in enumerate(self.functions):
-            doc_lines.append(doc.anchor())
-            doc_lines.append(doc.gen_markdown())
-            doc_lines.append(u" ")
-            doc_lines.append(u"---")
+        doc_lines.append(u"  ")
+        doc_lines.append(u"  ")
+        for bp in self.blueprint_ins:
+            doc_lines.append(u"#### %s" % bp.name)
+            for doc_idx, doc in enumerate(bp.funcs):
+                doc_lines.append(doc.anchor())
+                doc_lines.append(doc.gen_markdown())
+                doc_lines.append(u" ")
+                doc_lines.append(u"---")
         markdown = "\n".join([line.encode('utf8') for line in doc_lines])
         return markdown
 

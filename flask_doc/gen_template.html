@@ -23,39 +23,50 @@
         <center><a href="/api-doc/md" target="_blank">Download Markdown Version</a></center>
         <a name="toc"></a>
         <div class="row">
-            <div class="col-xs-6 col-md-4">
+            <div class="col-xs-5 col-md-3">
                 <ul class="list-group">
                     <li class="list-group-item list-group-item-success text-center">Toc Index</li>
-                    {% for f in gen.functions %}
-                    <li class="list-group-item">{{ f.link() | safe }}</li>
+                    {% for bp in gen.blueprint_ins %}
+                    <li class="list-group-item text-center">{{ bp.name }}</li>
+                        {% for f in bp.funcs %}
+                    <li class="list-group-item">[#{{f.uid}}] {{ f.link() | safe }}</li>
+                        {% endfor %}
                     {% endfor %}
                 </ul>
-                <form class="form-inline">
-                  <div class="form-group">
-                    <label class="sr-only" for="b64str"></label>
-                    <input type="text" class="form-control" id="b64str" placeholder="str to urlsafe base64">
-                  </div>
-                  <button id="b64a-str" type="button" class="btn btn-default">Base64</button>
-                </form>
-                <div id="b64result"></div>
+
             </div>
-            <div class="col-xs-12 col-md-8">
+            <div class="col-xs-7 col-md-9">
                 <div class="panel panel-default">
-                    <div class="panel-heading">公共认证Header</div>
+                    <div class="panel-heading">ToolBox:[Base64 和 设置公共认证Header]</div>
                     <div class="panel-body">
-                        <form class="form-inline" method="get">
-                          <div class="form-group">
-                            <label class="sr-only" for="global-auth-header">Email address</label>
-                            <input type="text" class="form-control" name="auth" id="global-auth-header" placeholder="Auth Header: Basic xxxxx for Example">
-                          </div>
-                          <button type="submit" class="btn btn-default">Setup</button>
-                        </form>
+                        <div class="row">
+                            <div class="col-xs-4 col-md-4">
+                                <form class="form-inline">
+                                  <div class="form-group">
+                                    <label class="sr-only" for="b64str"></label>
+                                    <input type="text" class="form-control" id="b64str" placeholder="str to urlsafe base64">
+                                  </div>
+                                  <button id="b64a-str" type="button" class="btn btn-default">Base64</button>
+                                </form>
+                            </div>
+                            <div class="col-xs-4 col-md-4">
+                                <form class="form-inline" method="get">
+                                  <div class="form-group">
+                                    <label class="sr-only" for="global-auth-header">Email address</label>
+                                    <input type="text" class="form-control" name="auth" id="global-auth-header" {%if gen.global_auth%}value="{{ gen.global_auth }}"{% else %}placeholder="Auth Header: Basic xxxxx for Example"{%endif%}>
+                                  </div>
+                                  <button type="submit" class="btn btn-default">Setup</button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                {% for f in gen.functions %}
+                {% for bp in gen.blueprint_ins %}
+                <div class="well">{{ bp.name }}</div>
+                {% for f in bp.funcs %}
                 {{ f.anchor() | safe }}
                 <div class="panel panel-default">
-                    <div class="panel-heading"> [#{{f.show_idx}}] {{ f.name }}</div>
+                    <div class="panel-heading"> [#{{f.uid}}] {{ f.name }}</div>
                     <div class="panel-body">
                         {% if f.has_content %}
                         <pre>{{ f.content }}</pre>
@@ -66,7 +77,8 @@
                         </dl>
                         <dl class="dl-horizontal">
                           <dt>HTTP Method</dt>
-                          <dd>{{ f.method }}</dd>
+                          <dd><h4>{% for mt in f.method %}<span class="label label-danger">{{ mt }}</span>&nbsp;&nbsp;{% endfor %}</h4>
+                          </dd>
                         </dl>
                         {% if f.url_params %}
                         <dl class="dl-horizontal">
@@ -95,7 +107,7 @@
                         {% endif %}
                         {% if f.query_params %}
                         <dl class="dl-horizontal">
-                          <dt>QueryString Parameters</dt>
+                          <dt>QueryString</dt>
                           <dd>
                               <table class="table table-bordered table-hover">
                                   <thead>
@@ -109,7 +121,7 @@
                                   <tbody>
                                     {% for row in f.query_params %}
                                     <tr>
-                                        {% for col in row%}
+                                        {% for col in row.get_arr()%}
                                         <td>{{ col }}</td>
                                         {% endfor %}
                                     </tr>
@@ -121,7 +133,7 @@
                         {% endif %}
                         {% if f.form_params %}
                         <dl class="dl-horizontal">
-                          <dt>Form Parameters</dt>
+                          <dt>Forms</dt>
                           <dd>
                               <table class="table table-bordered table-hover">
                                   <thead>
@@ -135,7 +147,7 @@
                                   <tbody>
                                     {% for row in f.form_params %}
                                     <tr>
-                                        {% for col in row%}
+                                        {% for col in row.get_arr()%}
                                         <td>{{ col }}</td>
                                         {% endfor %}
                                     </tr>
@@ -155,32 +167,32 @@
                     <div class="panel-footer">
                         <a href="#toc"><span class="glyphicon glyphicon-arrow-up"></span></a>
                         &nbsp; &nbsp;
-                        <a data-toggle="modal" data-target="#test-fly-{{ f.show_idx }}"><span class="glyphicon glyphicon-send"></span></a>
+                        <a data-toggle="modal" data-target="#test-fly-{{ f.uid }}"><span class="glyphicon glyphicon-send"></span></a>
                     </div>
                 </div>
 
                 <!-- Modal -->
-                <div class="modal fade" id="test-fly-{{ f.show_idx }}" tabindex="-1" role="dialog" aria-labelledby="myModalLabel_{{ f.show_idx }}" aria-hidden="true">
+                <div class="modal fade" id="test-fly-{{ f.uid }}" tabindex="-1" role="dialog" aria-labelledby="myModalLabel_{{ f.uid }}" aria-hidden="true">
                   <div class="modal-dialog">
                     <div class="modal-content">
                       <div class="modal-header">
                         <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
-                        <h4 class="modal-title" id="myModalLabel_{{ f.show_idx }}">{{ f.name }}</h4>
+                        <h4 class="modal-title" id="myModalLabel_{{ f.uid }}">{{ f.name }}</h4>
                       </div>
                       <div class="modal-body">
-                          <div id="result_{{ f.show_idx }}"></div>
-                          <form class="form-horizontal" role="form" id="header-form-{{ f.show_idx }}" method="post">
+                          <div id="result_{{ f.uid }}"></div>
+                          <form class="form-horizontal" role="form" id="header-form-{{ f.uid }}" method="post">
                               <div class="form-group">
-                                <label for="auth_{{ f.show_idx }}" class="col-sm-2 control-label">Auth</label>
+                                <label for="auth_{{ f.uid }}" class="col-sm-2 control-label">Auth</label>
                                 <div class="col-sm-10">
-                                    <input type="hidden" id="url-{{ f.show_idx }}" value="{{ f.url }}">
-                                    <input type="text" name="authenticate" class="form-control" id="auth_{{ f.show_idx }}" placeholder="Auth token,keep empty if don't need"{%if gen.global_auth%} value="{{ gen.global_auth }}"{%endif%}>
+                                    <input type="hidden" id="url-{{ f.uid }}" value="{{ f.url }}">
+                                    <input type="text" name="authenticate" class="form-control" id="auth_{{ f.uid }}" placeholder="Auth token,keep empty if don't need"{%if gen.global_auth%} value="{{ gen.global_auth }}"{%endif%}>
                                 </div>
                               </div>
                               <div class="form-group">
-                                <label for="method_{{ f.show_idx }}" class="col-sm-2 control-label">Method</label>
+                                <label for="method_{{ f.uid }}" class="col-sm-2 control-label">Method</label>
                                 <div class="col-sm-10">
-                                    <select name="method" id="method_{{ f.show_idx }}" class="form-control">
+                                    <select name="method" id="method_{{ f.uid }}" class="form-control">
                                         {% for method in f.method %}
                                         <option value="{{ method }}">{{ method }}</option>
                                         {% endfor %}
@@ -188,7 +200,7 @@
                                 </div>
                               </div>
                           </form>
-                          <form class="form-horizontal" role="form" id="url-form-{{ f.show_idx }}" method="post">
+                          <form class="form-horizontal" role="form" id="url-form-{{ f.uid }}" method="post">
                               {% if f.url_params %}
                               <div class="form-group">
                                 <div class="col-sm-offset-2 col-sm-10">
@@ -197,15 +209,15 @@
                               </div>
                               {% for k, v in f.url_params.iteritems() %}
                               <div class="form-group">
-                                <label for="u_{{ f.show_idx }}_{{ k }}" class="col-sm-2 control-label">{{ k }}</label>
+                                <label for="u_{{ f.uid }}_{{ k }}" class="col-sm-2 control-label">{{ k }}</label>
                                 <div class="col-sm-10">
-                                  <input type="text" name="u_{{ k }}" class="form-control url_param" id="u_{{ f.show_idx }}_{{ k }}">
+                                  <input type="text" name="u_{{ k }}" class="form-control url_param" id="u_{{ f.uid }}_{{ k }}">
                                 </div>
                               </div>
                               {% endfor %}
                               {% endif %}
                           </form>
-                          <form class="form-horizontal" role="form" id="query-form-{{ f.show_idx }}" method="get">
+                          <form class="form-horizontal" role="form" id="query-form-{{ f.uid }}" method="get">
                               {% if f.query_params %}
                               <div class="form-group">
                                 <div class="col-sm-offset-2 col-sm-10">
@@ -214,15 +226,15 @@
                               </div>
                               {% for row in f.query_params %}
                               <div class="form-group">
-                                <label for="q-{{ f.show_idx }}_{{ row[0] }}" class="col-sm-2 control-label">{{ row[0] }}</label>
+                                <label for="q-{{ f.uid }}_{{ row.get_arr()[0] }}" class="col-sm-2 control-label">{{ row.get_arr()[0] }}</label>
                                 <div class="col-sm-10">
-                                  <input type="text" name="{{ row[0] }}" class="form-control query_param" id="q-{{ f.show_idx }}_{{ row[0] }}">
+                                  <input type="text" name="{{ row.get_arr()[0] }}" class="form-control query_param" id="q-{{ f.uid }}_{{ row.get_arr()[0] }}">
                                 </div>
                               </div>
                               {% endfor %}
                               {% endif %}
                           </form>
-                          <form class="form-horizontal" role="form" id="post-form-{{ f.show_idx }}" method="get">
+                          <form class="form-horizontal" role="form" id="post-form-{{ f.uid }}" method="get">
                               {% if f.form_params %}
                               <div class="form-group">
                                 <div class="col-sm-offset-2 col-sm-10">
@@ -231,9 +243,9 @@
                               </div>
                               {% for row in f.form_params %}
                               <div class="form-group">
-                                <label for="f-{{ f.show_idx }}_{{ row[0] }}" class="col-sm-2 control-label">{{ row[0] }}</label>
+                                <label for="f-{{ f.uid }}_{{ row.get_arr()[0] }}" class="col-sm-2 control-label">{{ row.get_arr()[0] }}</label>
                                 <div class="col-sm-10">
-                                  <input type="text" name="{{ row[0] }}" class="form-control query_param" id="f-{{ f.show_idx }}_{{ row[0] }}">
+                                  <input type="text" name="{{ row.get_arr()[0] }}" class="form-control query_param" id="f-{{ f.uid }}_{{ row.get_arr()[0] }}">
                                 </div>
                               </div>
                               {% endfor %}
@@ -242,11 +254,12 @@
                       </div>
                       <div class="modal-footer">
                         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-primary execute-btn" form-bind-id="{{ f.show_idx }}">Execute</button>
+                        <button type="button" class="btn btn-primary execute-btn" form-bind-id="{{ f.uid }}">Execute</button>
                       </div>
                     </div>
                   </div>
                 </div>
+                {% endfor %}
                 {% endfor %}
             </div>
 
@@ -258,18 +271,7 @@
     <script src="http://cdn.bootcss.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
     <script type="text/javascript">
         var gif_url = "/api-doc/loading.gif";
-        function getAuthCookie(idx) {
-            var cn = "Authorization=";
-            var idx = document.cookie.indexOf(cn)
-
-            if (idx != -1) {
-                var end = document.cookie.indexOf(";", idx + 1);
-                if (end == -1) end = document.cookie.length;
-                return unescape(document.cookie.substring(idx + cn.length, end));
-            } else {
-                return "";
-            }
-        }
+        
 
         function gen_url(idx){
             var url = $("#url-" + idx).val();
@@ -297,11 +299,11 @@
                 url: url,
                 headers: {'Authorization': auth},
                 data: form_data,
-                dataType: "json",
+                dataType: "text",
                 success: function(data) {
                     //var obj = jQuery.parseJSON(data); if the dataType is not specified as json uncomment this
                     // do what ever you want with the server response
-                    $("#result_" + idx).html("<pre>" + JSON.stringify(data) +"</pre>");
+                    $("#result_" + idx).html("<pre>" + data +"</pre>");
                 },
                 error: function() {
                     alert('error handing here');
@@ -320,7 +322,7 @@
             })
             $("#b64a-str").click(function () {
                 $.post('/api-doc/b64str', {s:$('#b64str').val()}, function (rt) {
-                    $('#b64result').html("<pre>" + rt.rt + "</pre>");
+                    $('#global-auth-header').val("Basic " + rt.rt);
                 }, 'json')
             })
         });
