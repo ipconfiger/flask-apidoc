@@ -4,7 +4,7 @@ __author__ = 'liming'
 from setuptools import setup
 
 setup(name='flask_doc',
-      version='0.1.14',
+      version='0.2.0',
       description='Write API document when you coding, Test your API when you press last word immediately',
       url='https://github.com/ipconfiger/flask-apidoc',
       author='Alexander.Li',

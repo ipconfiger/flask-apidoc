@@ -1,12 +1,12 @@
 # coding=utf8
-
+import json
 from operator import itemgetter
 import traceback
 import sys
 from flask import Blueprint, Response, Markup
 import os
 from jinja2 import Environment, FileSystemLoader
-from utils import func_sign
+from utils import func_sign, js_string_to_html
 import markdown
 import describer
 
@@ -81,7 +81,7 @@ class FunctionDocument(object):
     """
     接口类的文档对象
     """
-    def __init__(self, doc_string, url, method, endpoint, prefix, forms, args):
+    def __init__(self, doc_string, url, method, endpoint, prefix, forms, args, json_body):
         self.prefix = prefix
         self.endpoint = endpoint
         self.doc_string = doc_string
@@ -92,6 +92,10 @@ class FunctionDocument(object):
         self.content = ""
         self.form_params = forms
         self.query_params = args
+        if json_body:
+            self.json_body = json.dumps(json_body().gen_doc(), indent=4, ensure_ascii=False)
+        else:
+            self.json_body = None
         self.url_params = {}
         self.normal_lines = []
         self.return_lines = []
@@ -292,8 +296,10 @@ class Generator(object):
             
             args = describer.api_args[f_name] if f_name in describer.api_args else []
 
+            json_body = describer.api_json[f_name] if f_name in describer.api_json else None
 
-
+            if json_body:
+                assert forms == [], u"如果定义了json_form就能定义forms了"
 
             if prefix in self.blueprints:
                 bp = self.blueprints[prefix]
@@ -304,7 +310,7 @@ class Generator(object):
                 bp.funcs = []
                 self.blueprints[prefix] = bp
 
-            bp.funcs.append(FunctionDocument(doc.decode('utf8'), url, method, rule.endpoint, prefix, forms, args))
+            bp.funcs.append(FunctionDocument(doc.decode('utf8'), url, method, rule.endpoint, prefix, forms, args, json_body))
 
             bp.sort()
             

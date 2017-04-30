@@ -4,7 +4,8 @@ import generator
 import describer
 
 __all__ = ['Generator', 'forms', 'args', 'gathering_form', 'gathering_args', 'BaseValidator', 'StrLenBetween',
-           'NumberBetween', 'ValidDateTime', 'ValidEmail', 'ValidUrl', 'BaseValidator']
+           'NumberBetween', 'ValidDateTime', 'ValidEmail', 'ValidUrl', 'BaseValidator', 'gathering_body', 'JsonMapped',
+           'JsonArrayProperty', 'JsonProperty', 'json_form']
 
 Generator = generator.Generator
 
@@ -28,4 +29,12 @@ ValidEmail = describer.ValidEmail
 
 ValidUrl = describer.ValidUrl
 
-BaseValidator = describer.BaseValidator
+gathering_body = describer.gathering_body
+
+JsonMapped = describer.JsonMapped
+
+JsonArrayProperty = describer.JsonArrayProperty
+
+JsonProperty = describer.JsonProperty
+
+json_form = describer.json_form

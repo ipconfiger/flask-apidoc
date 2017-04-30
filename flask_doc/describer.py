@@ -1,14 +1,16 @@
 # coding=utf8
+import json
 from functools import wraps
 
 import logging
 
 import datetime
 from flask import request
-from utils import func_sign
+from utils import func_sign, format_type
 
-api_forms ={}
+api_forms = {}
 api_args = {}
+api_json = {}
 
 form_data = {}
 args_data = {}
@@ -137,6 +139,16 @@ def gathering_args(ins):
             logging.error(u"%s is %s", k, v)
     return ins
 
+def gathering_body(data_type):
+    """
+    通过request.data 获取post的json字典
+    :param data_type: 
+    :type data_type: 
+    :return: 
+    :rtype: 
+    """
+    return data_type.from_json_dict(request.get_json())
+
 
 class FieldDescribe(object):
     filed_name = ''
@@ -231,3 +243,159 @@ def args(field_name, required, data_type, help='', validators=None):
             return ret_value
         return d_function
     return decorator
+
+
+def json_form(data_type):
+    def decorator(f):
+        assert issubclass(data_type, JsonMapped), u"只能设置JsonMapped的子类"
+        f_name = func_sign(f)
+        api_json[f_name] = data_type
+        @wraps(f)
+        def d_function (*args, **kwargs):
+            ret_value = f(*args, **kwargs)
+            return ret_value
+        return d_function
+    return decorator
+        
+
+
+
+
+class JsonProperty(object):
+    def __init__(self, data_type, required=False, help=None, validators=None):
+        self.date_type = data_type
+        self.required = required
+        self.help = help
+        self.validators = validators
+        self.field_name = ''
+        self.value = None
+
+    def gen_doc(self):
+        """
+        生成文档
+        :param name: 
+        :type name: 
+        :return: 
+        :rtype: 
+        """
+        if issubclass(self.date_type, JsonMapped):
+            return self.date_type().gen_doc()
+        else:
+            val = u";".join([basevalidator.help for basevalidator in self.validators]) if self.validators else u"无"
+            return u"[%s]%s:%s 约束(%s)" % (format_type(self.date_type), u"必填" if self.required else u"非必填", self.help, val)
+
+    def set_field(self, name, dt):
+        """
+        填入数据
+        :param name: 
+        :type name: 
+        :param dt: 
+        :type dt: 
+        :return: 
+        :rtype: 
+        """
+        self.field_name = name
+        value = dt.get(self.field_name)
+        if self.required:
+            assert value, u"field:%s缺失-%s" % (name, value)
+        if self.date_type == str:
+            assert type(value) == str or type(value) == unicode, u"field:%s类型不为%s,实际为%s" % (name, self.date_type, type(value))
+        if self.date_type == float:
+            assert type(value) == float, u"field:%s类型不为%s,实际为%s" % (name, self.date_type, type(value))
+        if self.date_type == int:
+            assert type(value) == int, u"field:%s类型不为%s,实际为%s" % (name, self.date_type, type(value))
+        if self.validators:
+            if value:
+                for validator in self.validators:
+                    validator.validator(name, unicode(value))
+
+        if issubclass(self.date_type, JsonMapped):
+            if self.required:
+                assert type(value) == dict, u"field:%s类型不正确:%s" % (name, type(value))
+            if value:
+                self.value = self.date_type.from_json_dict(value)
+                return
+            else:
+                self.value = None
+                return
+        self.value = value
+
+
+class JsonArrayProperty(object):
+    def __init__(self, data_type, required=False, help=None):
+        self.data_type = data_type
+        self.required = required
+        self.help = help
+        self.value = []
+
+    def gen_doc(self):
+        """
+        生成文档
+        :param name: 
+        :type name: 
+        :return: 
+        :rtype: 
+        """
+        doc_root = []
+        if issubclass(self.data_type, JsonMapped):
+            doc_root.append(self.data_type().gen_doc())
+            return doc_root
+        else:
+            return u"[%s,]" % self.data_type
+
+
+    def set_field(self, name, dt):
+        """
+        设值
+        :param name: 
+        :type name: 
+        :param dt: 
+        :type dt: 
+        :return: 
+        :rtype: 
+        """
+        self.field_name = name
+        value = dt.get(name)
+        if self.required:
+            assert value, u"field:%s缺失-%s" % (name, value)
+        if value:
+            assert type(value) == type([]), u"field:%s类型不为数组:%s" % (name, type(value))
+            for item in value:
+                if type(item) == dict:
+                    assert issubclass(self.data_type, JsonMapped), u"field:%s数组内数据格式不正确:%s" % (name, value)
+                    v = self.data_type.from_json_dict(item)
+                    self.value.append(v)
+                else:
+                    assert type(item) == self.data_type, u"field:%s数组内数据类型与定义不符-定义:%s 实际%s" % (name, self.data_type, type(item))
+                    self.value.append(item)
+
+
+class JsonMapped(object):
+    """
+    作为json解析的基类, 实现对复杂对象的JSON处理器
+    """
+    def gen_doc(self):
+        """
+        生成文档
+        :return: 
+        :rtype: 
+        """
+        doc_root = {}
+        for attr_name in dir(self):
+            attr = getattr(self, attr_name)
+            if not (isinstance(attr, JsonProperty) or isinstance(attr, JsonArrayProperty)):
+                continue
+            doc_root[attr_name] = attr.gen_doc()
+        return doc_root
+
+    @classmethod
+    def from_json_dict(cls, dt):
+        ins = cls()
+        for attr_name in dir(ins):
+            attr = getattr(ins, attr_name)
+            if not (isinstance(attr, JsonProperty) or isinstance(attr, JsonArrayProperty)):
+                continue
+            attr.set_field(attr_name, dt)
+            setattr(ins, attr_name, attr.value)
+        return ins
+

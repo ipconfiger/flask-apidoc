@@ -131,31 +131,41 @@
                           </dd>
                         </dl>
                         {% endif %}
+                        {% if f.json_body %}
+                            <dl class="dl-horizontal">
+                              <dt>Json Body</dt>
+                              <dd>
+                                  <pre>{{ f.json_body }}</pre>
+                              </dd>
+                            </dl>
+                        {% else %}
                         {% if f.form_params %}
-                        <dl class="dl-horizontal">
-                          <dt>Forms</dt>
-                          <dd>
-                              <table class="table table-bordered table-hover">
-                                  <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Require</th>
-                                        <th>Type</th>
-                                        <th>Description</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {% for row in f.form_params %}
-                                    <tr>
-                                        {% for col in row.get_arr()%}
-                                        <td>{{ col }}</td>
+                           <!--如果有form表单的时候的内容 //-->
+                            <dl class="dl-horizontal">
+                              <dt>Forms</dt>
+                              <dd>
+                                  <table class="table table-bordered table-hover">
+                                      <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Require</th>
+                                            <th>Type</th>
+                                            <th>Description</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {% for row in f.form_params %}
+                                        <tr>
+                                            {% for col in row.get_arr()%}
+                                            <td>{{ col }}</td>
+                                            {% endfor %}
+                                        </tr>
                                         {% endfor %}
-                                    </tr>
-                                    {% endfor %}
-                                  </tbody>
-                              </table>
-                          </dd>
-                        </dl>
+                                      </tbody>
+                                  </table>
+                              </dd>
+                            </dl>
+                            {% endif %}
                         {% endif %}
                         <dl class="dl-horizontal">
                           <dt>Return Value</dt>
@@ -234,23 +244,32 @@
                               {% endfor %}
                               {% endif %}
                           </form>
-                          <form class="form-horizontal" role="form" id="post-form-{{ f.uid }}" method="get">
-                              {% if f.form_params %}
-                              <div class="form-group">
-                                <div class="col-sm-offset-2 col-sm-10">
-                                   Form Parameters
-                                </div>
-                              </div>
-                              {% for row in f.form_params %}
-                              <div class="form-group">
-                                <label for="f-{{ f.uid }}_{{ row.get_arr()[0] }}" class="col-sm-2 control-label">{{ row.get_arr()[0] }}</label>
-                                <div class="col-sm-10">
-                                  <input type="text" name="{{ row.get_arr()[0] }}" class="form-control query_param" id="f-{{ f.uid }}_{{ row.get_arr()[0] }}">
-                                </div>
-                              </div>
-                              {% endfor %}
-                              {% endif %}
-                            </form>
+                          {% if f.json_body %}
+                              <form>
+                                  <div class="form-group" >
+                                    <label for="json-body-{{ f.uid }}" id="post-json-{{ f.uid }}">JSON BODY</label>
+                                    <textarea class="form-control" id="json-body-{{ f.uid }}" cols="60" rows="10"></textarea>
+                                  </div>
+                              </form>
+                          {% else %}
+                              <form class="form-horizontal" role="form" id="post-form-{{ f.uid }}" method="get">
+                                  {% if f.form_params %}
+                                  <div class="form-group">
+                                    <div class="col-sm-offset-2 col-sm-10">
+                                       Form Parameters
+                                    </div>
+                                  </div>
+                                  {% for row in f.form_params %}
+                                  <div class="form-group">
+                                    <label for="f-{{ f.uid }}_{{ row.get_arr()[0] }}" class="col-sm-2 control-label">{{ row.get_arr()[0] }}</label>
+                                    <div class="col-sm-10">
+                                      <input type="text" name="{{ row.get_arr()[0] }}" class="form-control query_param" id="f-{{ f.uid }}_{{ row.get_arr()[0] }}">
+                                    </div>
+                                  </div>
+                                  {% endfor %}
+                                  {% endif %}
+                              </form>
+                          {% endif %}
                       </div>
                       <div class="modal-footer">
                         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
@@ -291,25 +310,50 @@
         function send_data(idx) {
             var url = gen_url(idx);
             var method = $("#method_"+idx).val();
+            var use_json = false;
+
             var form_data = $("#post-form-" + idx).serialize();
-            var auth = $("#auth_" + idx).val()
+            var json_data = $("#json-body-" + idx).val();
+            if (typeof json_data === 'undefined'){
+            } else{
+                form_data = json_data;
+                use_json = true;
+            }
+            var auth = $("#auth_" + idx).val();
             $("#result_" + idx).html("<center><img src='" + gif_url + "'/></center>");
-            $.ajax({
-                type: method,
-                url: url,
-                headers: {'Authorization': auth},
-                data: form_data,
-                dataType: "text",
-                success: function(data) {
-                    //var obj = jQuery.parseJSON(data); if the dataType is not specified as json uncomment this
-                    // do what ever you want with the server response
-                    $("#result_" + idx).html("<pre>" + data +"</pre>");
-                },
-                error: function() {
-                    alert('error handing here');
-                    $("#result_" + idx).html("");
-                }
-            });
+            if (use_json){
+                $.ajax({
+                    type: method,
+                    url: url,
+                    headers: {'Authorization': auth},
+                    data: form_data,
+                    contentType: 'application/json',
+                    dataType: 'text',
+                    success: function (data) {
+                        $("#result_" + idx).html("<pre>" + data + "</pre>");
+                    },
+                    error: function () {
+                        alert('error handing here');
+                        $("#result_" + idx).html("");
+                    }
+                });
+            }else {
+                $.ajax({
+                    type: method,
+                    url: url,
+                    headers: {'Authorization': auth},
+                    data: form_data,
+                    dataType: "text",
+                    success: function (data) {
+                        $("#result_" + idx).html("<pre>" + data + "</pre>");
+                    },
+                    error: function () {
+                        alert('error handing here');
+                        $("#result_" + idx).html("");
+                    }
+                });
+            }
+
 
         }
 
