@@ -374,6 +374,7 @@ class JsonMapped(object):
     """
     作为json解析的基类, 实现对复杂对象的JSON处理器
     """
+    private_json_dict = None
     def gen_doc(self):
         """
         生成文档
@@ -388,9 +389,13 @@ class JsonMapped(object):
             doc_root[attr_name] = attr.gen_doc()
         return doc_root
 
+    def as_json(self):
+        return json.dumps(self.private_json_dict, indent=2, ensure_ascii=False)
+
     @classmethod
     def from_json_dict(cls, dt):
         ins = cls()
+        ins.private_json_dict = dt
         for attr_name in dir(ins):
             attr = getattr(ins, attr_name)
             if not (isinstance(attr, JsonProperty) or isinstance(attr, JsonArrayProperty)):
