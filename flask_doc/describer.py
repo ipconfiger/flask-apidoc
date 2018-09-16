@@ -258,9 +258,6 @@ def json_form(data_type):
     return decorator
         
 
-
-
-
 class JsonProperty(object):
     def __init__(self, data_type, required=False, help=None, validators=None):
         self.date_type = data_type
@@ -297,28 +294,32 @@ class JsonProperty(object):
         self.field_name = name
         value = dt.get(self.field_name)
         if self.required:
-            assert value, u"field:%s缺失-%s" % (name, value)
-        if self.date_type == str:
-            assert type(value) == str or type(value) == unicode, u"field:%s类型不为%s,实际为%s" % (name, self.date_type, type(value))
-        if self.date_type == float:
-            assert type(value) == float, u"field:%s类型不为%s,实际为%s" % (name, self.date_type, type(value))
-        if self.date_type == int:
-            assert type(value) == int, u"field:%s类型不为%s,实际为%s" % (name, self.date_type, type(value))
-        if self.validators:
-            if value:
-                for validator in self.validators:
-                    validator.validator(name, unicode(value))
+            assert value != None, u"field:%s缺失-%s" % (name, value)
+        if self.required and value:
+            if self.date_type == str:
+                assert type(value) == str or type(value) == unicode, u"field:%s类型不为%s,实际为%s" % (name, self.date_type, type(value))
+            if self.date_type == float:
+                assert type(value) == float or type(value) == int, u"field:%s类型不为%s,实际为%s" % (name, self.date_type, type(value))
+            if self.date_type == int:
+                assert type(value) == int, u"field:%s类型不为%s,实际为%s" % (name, self.date_type, type(value))
+            if self.validators:
+                if value != None:
+                    for validator in self.validators:
+                        validator.validator(name, unicode(value))
 
         if issubclass(self.date_type, JsonMapped):
             if self.required:
                 assert type(value) == dict, u"field:%s类型不正确:%s" % (name, type(value))
-            if value:
+            if value != None:
                 self.value = self.date_type.from_json_dict(value)
                 return
             else:
                 self.value = None
                 return
         self.value = value
+
+    def clear(self):
+        pass
 
 
 class JsonArrayProperty(object):
@@ -369,6 +370,9 @@ class JsonArrayProperty(object):
                     assert type(item) == self.data_type, u"field:%s数组内数据类型与定义不符-定义:%s 实际%s" % (name, self.data_type, type(item))
                     self.value.append(item)
 
+    def clear(self):
+        self.value = []
+
 
 class JsonMapped(object):
     """
@@ -402,5 +406,12 @@ class JsonMapped(object):
                 continue
             attr.set_field(attr_name, dt)
             setattr(ins, attr_name, attr.value)
+            attr.clear()
         return ins
 
+
+class ResponseViewBase(object):
+    """
+    定义返回值结构, 并生成返回的JSON
+    """
+    pass
